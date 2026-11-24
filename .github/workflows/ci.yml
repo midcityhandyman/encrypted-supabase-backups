@@ -1,0 +1,57 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: lint and stubbed tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: |
+          shellcheck --version
+          shellcheck -x --severity=warning \
+            bin/*.sh lib/*.sh tests/run.sh demo/run-demo.sh ci/full-cycle.sh \
+            tests/stubs/pg/* tests/stubs/age/*
+      - name: tests (Postgres stubbed; age stubbed unless the runner has it)
+        run: bash tests/run.sh
+      - name: demo runs offline
+        run: bash demo/run-demo.sh
+
+  full-cycle:
+    name: full cycle on real Postgres and real age
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          # Throwaway password for the CI service container only.
+          POSTGRES_PASSWORD: ci-only-not-a-secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGPASSWORD: ci-only-not-a-secret
+      CI_ADMIN_URL: postgres://postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: install age and the Postgres 16 client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y age postgresql-client-16
+          age --version
+          pg_dump --version
+      - name: backup, encrypt, restore test, prune, negative cases
+        run: bash ci/full-cycle.sh
+      - name: test suite again with the real age binary
+        run: bash tests/run.sh
