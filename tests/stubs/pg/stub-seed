@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Seed a fake database with synthetic rows. Usage: stub-seed DBNAME
+set -euo pipefail
+# shellcheck source=_stub_lib.sh
+. "$(dirname "$0")/_stub_lib.sh"
+db="${1:?usage: stub-seed DBNAME}"
+mkdir -p "$STUB_PG_ROOT/postgres" "$STUB_PG_ROOT/$db"
+for i in 1 2 3 4 5; do
+  printf '%s\tSample Customer %s\tcustomer%s@example.com\t555-010%s\n' "$i" "$i" "$i" "$i"
+done >"$STUB_PG_ROOT/$db/public.customers.tsv"
+for i in 1 2 3 4 5 6 7 8; do
+  printf '%s\t%s\tSample job %s\tscheduled\n' "$i" "$(((i % 5) + 1))" "$i"
+done >"$STUB_PG_ROOT/$db/public.jobs.tsv"
+for i in 1 2 3; do
+  printf '%s\t%s\t%s00.00\tunpaid\n' "$i" "$i" "$i"
+done >"$STUB_PG_ROOT/$db/public.invoices.tsv"
+# A table outside the dumped schema, to show schema filtering.
+printf '1\tinternal row that a public schema dump must skip\n' >"$STUB_PG_ROOT/$db/private.audit_log.tsv"

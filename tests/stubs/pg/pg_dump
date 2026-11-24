@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Stub pg_dump: writes a tiny text archive of the fake database to stdout.
+set -euo pipefail
+# shellcheck source=_stub_lib.sh
+. "$(dirname "$0")/_stub_lib.sh"
+
+url=""
+schemas=" "
+for arg in "$@"; do
+  case "$arg" in
+    --dbname=*) url="${arg#--dbname=}" ;;
+    --schema=*) schemas+="${arg#--schema=} " ;;
+    --format=custom | --no-owner | --no-privileges) ;;
+    *)
+      echo "pg_dump (stub): unsupported argument $arg" >&2
+      exit 2
+      ;;
+  esac
+done
+dir="$(stub_require_db "$url" pg_dump)"
+
+echo "STUB-PGDUMP v1"
+if [[ "${STUB_PG_DUMP_FAIL:-0}" == "1" ]]; then
+  # Fail after emitting some bytes, like a connection dropped mid dump.
+  echo "pg_dump: error: server closed the connection unexpectedly (stub)" >&2
+  exit 1
+fi
+shopt -s nullglob
+for f in "$dir"/*.tsv; do
+  table="$(basename "$f" .tsv)"
+  [[ "$schemas" == *" ${table%%.*} "* ]] || continue
+  echo "TABLE $table $(($(wc -l <"$f")))"
+  cat "$f"
+done
+echo "END"

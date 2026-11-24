@@ -1,0 +1,89 @@
+encrypted-supabase-backups demo
+postgres tools: stub (file backed fake database, synthetic rows)
+age:            stub (age not installed; the stub is NOT encryption)
+
+== 1. Seed a fake source database and make an age key pair ==
+source tables: ./private.audit_log.tsv ./public.customers.tsv ./public.invoices.tsv ./public.jobs.tsv
+recipient (public key) starts with: age1stub...
+
+== 2. Ten earlier nights of backups (2026-11-01 to 2026-11-10), logs hidden ==
+backups on disk: 10
+
+== 3. Night eleven: the full nightly cycle (backup, restore test, prune) ==
+[backup] counting rows in schemas: public
+[backup] dumping and encrypting to db-20261111T021500Z.dump.age
+[backup] backup written: db-20261111T021500Z.dump.age (386 bytes, 3 tables, 16 rows)
+[restore-test] testing db-20261111T021500Z.dump.age
+[restore-test] checksum ok
+[restore-test] decrypting and restoring into scratch database restore_test_scratch
+[restore-test]   ok        public.customers expected=5 restored=5
+[restore-test]   ok        public.invoices expected=3 restored=3
+[restore-test]   ok        public.jobs expected=8 restored=8
+[restore-test] RESTORE TEST PASSED for db-20261111T021500Z.dump.age: 3 tables match
+[prune] keep    db-20261111T021500Z.dump.age (daily+weekly)
+[prune] keep    db-20261110T021500Z.dump.age (daily)
+[prune] keep    db-20261109T021500Z.dump.age (daily)
+[prune] keep    db-20261108T021500Z.dump.age (weekly)
+[prune] removed db-20261107T021500Z.dump.age
+[prune] removed db-20261106T021500Z.dump.age
+[prune] removed db-20261105T021500Z.dump.age
+[prune] removed db-20261104T021500Z.dump.age
+[prune] removed db-20261103T021500Z.dump.age
+[prune] removed db-20261102T021500Z.dump.age
+[prune] removed db-20261101T021500Z.dump.age
+[prune] prune done: 4 kept, 7 removed (daily=3 weekly=2)
+[nightly] nightly cycle complete
+
+== 4. What is left on disk ==
+db-20261108T021500Z.dump.age
+db-20261108T021500Z.dump.age.counts.tsv
+db-20261108T021500Z.dump.age.sha256
+db-20261109T021500Z.dump.age
+db-20261109T021500Z.dump.age.counts.tsv
+db-20261109T021500Z.dump.age.sha256
+db-20261110T021500Z.dump.age
+db-20261110T021500Z.dump.age.counts.tsv
+db-20261110T021500Z.dump.age.sha256
+db-20261111T021500Z.dump.age
+db-20261111T021500Z.dump.age.counts.tsv
+db-20261111T021500Z.dump.age.sha256
+restore-test.log
+
+row counts recorded with the newest backup:
+public.customers	5
+public.invoices	3
+public.jobs	8
+
+plaintext check: no readable customer rows in the backup file
+
+== 5. Failure drill: a restore that silently loses one row ==
+[restore-test] testing db-20261111T021500Z.dump.age
+[restore-test] checksum ok
+[restore-test] decrypting and restoring into scratch database restore_test_scratch
+[restore-test]   ok        public.customers expected=5 restored=5
+[restore-test]   ok        public.invoices expected=3 restored=3
+[restore-test]   MISMATCH  public.jobs expected=8 restored=7
+[restore-test] ERROR: RESTORE TEST FAILED for db-20261111T021500Z.dump.age: row counts differ (tolerance 0)
+restore-test exit code: 1
+
+== 6. Failure drill: the wrong decryption key ==
+[restore-test] testing db-20261111T021500Z.dump.age
+[restore-test] checksum ok
+[restore-test] decrypting and restoring into scratch database restore_test_scratch
+age: error: no identity matched any of the recipients (stub)
+pg_restore: error: input file does not appear to be a valid archive (stub)
+[restore-test] ERROR: decrypt or restore failed for db-20261111T021500Z.dump.age
+restore-test exit code: 1
+
+== 7. Failure drill: a backup file that was modified after it was written ==
+[restore-test] testing db-20261110T021500Z.dump.age
+[restore-test] ERROR: checksum mismatch: db-20261110T021500Z.dump.age is corrupt or was modified
+restore-test exit code: 1
+
+== 8. Restore test history ==
+db-20261111T021500Z.dump.age	PASS
+db-20261111T021500Z.dump.age	FAIL
+db-20261111T021500Z.dump.age	FAIL
+db-20261110T021500Z.dump.age	FAIL
+
+demo finished; scratch files removed

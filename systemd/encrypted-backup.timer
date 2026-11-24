@@ -1,0 +1,12 @@
+# Example timer. Enable with: systemctl enable --now encrypted-backup.timer
+[Unit]
+Description=Nightly encrypted Postgres backup
+
+[Timer]
+OnCalendar=*-*-* 02:15:00 UTC
+RandomizedDelaySec=10min
+# Run at next boot if the machine was off at 02:15.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

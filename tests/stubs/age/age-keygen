@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Stub age-keygen, paired with the stub age. Supports "-o FILE" and "-y FILE".
+set -euo pipefail
+case "${1:-}" in
+  -o)
+    hex="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+    umask 077
+    printf '# created by the age-keygen stub, not a real key\n# public key: age1stub%s\nAGE-SECRET-KEY-STUB-%s\n' \
+      "$hex" "${hex^^}" >"$2"
+    echo "Public key: age1stub$hex" >&2
+    ;;
+  -y)
+    secret="$(grep '^AGE-SECRET-KEY-STUB-' "$2" | head -n 1)"
+    suffix="${secret#AGE-SECRET-KEY-STUB-}"
+    echo "age1stub${suffix,,}"
+    ;;
+  *)
+    echo "age-keygen (stub): usage: age-keygen -o FILE | -y FILE" >&2
+    exit 2
+    ;;
+esac

@@ -1,0 +1,26 @@
+# Example unit. Copy to /etc/systemd/system/ and adjust the paths.
+# Config lives in an env file readable only by the backup user:
+#   install -o backup -g backup -m 0600 .env.example /etc/encrypted-backups/backup.env
+[Unit]
+Description=Encrypted Postgres backup, restore test and prune
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=backup
+Group=backup
+EnvironmentFile=/etc/encrypted-backups/backup.env
+ExecStart=/opt/encrypted-supabase-backups/bin/nightly.sh
+# A failed backup or a failed restore test exits non-zero, which marks the
+# unit failed. Point OnFailure= in [Unit] at your own alert unit to get paged.
+TimeoutStartSec=2h
+Nice=10
+IOSchedulingClass=idle
+
+# Hardening. The job only needs the network and one writable directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/backups/postgres

@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Stub age. NOT ENCRYPTION: it gzips and base64 encodes behind an envelope
+# that names the recipient, and refuses to open it with a non matching
+# identity. It exists so the pipeline can be exercised where age is missing.
+set -euo pipefail
+
+mode="encrypt"
+recipient=""
+identity=""
+output=""
+input=""
+while (($#)); do
+  case "$1" in
+    -d | --decrypt) mode="decrypt" ;;
+    -r | --recipient)
+      recipient="$2"
+      shift
+      ;;
+    -i | --identity)
+      identity="$2"
+      shift
+      ;;
+    -o | --output)
+      output="$2"
+      shift
+      ;;
+    -*)
+      echo "age (stub): unsupported flag $1" >&2
+      exit 2
+      ;;
+    *) input="$1" ;;
+  esac
+  shift
+done
+[[ -z "$input" ]] || exec <"$input"
+[[ -z "$output" ]] || exec >"$output"
+
+if [[ "$mode" == "encrypt" ]]; then
+  if [[ "$recipient" != age1* ]]; then
+    echo "age: error: malformed recipient (stub)" >&2
+    exit 1
+  fi
+  printf 'stub-age-envelope v1\n-> %s\n' "$recipient"
+  gzip -c | base64
+else
+  secret="$(grep '^AGE-SECRET-KEY-STUB-' "$identity" | head -n 1 || true)"
+  suffix="${secret#AGE-SECRET-KEY-STUB-}"
+  mine="age1stub${suffix,,}"
+  IFS= read -r magic || true
+  IFS= read -r arrow || true
+  if [[ "${magic:-}" != "stub-age-envelope v1" ]]; then
+    echo "age: error: unknown header (stub)" >&2
+    exit 1
+  fi
+  if [[ -z "$suffix" || "${arrow:-}" != "-> $mine" ]]; then
+    echo "age: error: no identity matched any of the recipients (stub)" >&2
+    exit 1
+  fi
+  base64 -d | gzip -dc
+fi

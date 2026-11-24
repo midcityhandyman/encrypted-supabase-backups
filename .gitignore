@@ -1,0 +1,18 @@
+# Local config and keys must never be committed
+.env
+*.env
+!.env.example
+*identity*.txt
+key.txt
+
+# Backups and working files
+*.dump.age
+*.dump.age.*
+*.partial
+restore-test.log
+demo/.work/
+
+# Tooling
+.venv/
+node_modules/
+__pycache__/

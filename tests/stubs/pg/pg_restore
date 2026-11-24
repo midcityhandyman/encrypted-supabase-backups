@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Stub pg_restore: reads the stub archive on stdin into a fake database.
+set -euo pipefail
+# shellcheck source=_stub_lib.sh
+. "$(dirname "$0")/_stub_lib.sh"
+
+bad_archive() {
+  echo "pg_restore: error: $1 (stub)" >&2
+  exit 1
+}
+
+url=""
+for arg in "$@"; do
+  case "$arg" in
+    --dbname=*) url="${arg#--dbname=}" ;;
+    --clean | --if-exists | --no-owner | --no-privileges | --exit-on-error) ;;
+    *)
+      echo "pg_restore (stub): unsupported argument $arg" >&2
+      exit 2
+      ;;
+  esac
+done
+dir="$(stub_require_db "$url" pg_restore)"
+
+IFS= read -r header || true
+[[ "${header:-}" == "STUB-PGDUMP v1" ]] || bad_archive "input file does not appear to be a valid archive"
+
+complete=0
+while IFS= read -r line; do
+  if [[ "$line" == "END" ]]; then
+    complete=1
+    break
+  fi
+  read -r keyword table rows <<<"$line"
+  [[ "$keyword" == "TABLE" ]] || bad_archive "corrupt archive"
+  : >"$dir/$table.tsv"
+  for ((i = 0; i < rows; i++)); do
+    IFS= read -r row || bad_archive "unexpected end of archive"
+    if [[ "${STUB_PG_RESTORE_DROP_ROW:-}" == "$table" && $i -eq 0 ]]; then
+      continue # simulate a restore that silently loses a row
+    fi
+    printf '%s\n' "$row" >>"$dir/$table.tsv"
+  done
+done
+((complete == 1)) || bad_archive "unexpected end of archive"

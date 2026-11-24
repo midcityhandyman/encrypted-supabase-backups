@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Stub psql: understands only the handful of statements the scripts send.
+set -euo pipefail
+# shellcheck source=_stub_lib.sh
+. "$(dirname "$0")/_stub_lib.sh"
+
+url=""
+sql=""
+while (($#)); do
+  case "$1" in
+    --dbname=*) url="${1#--dbname=}" ;;
+    -c)
+      sql="$2"
+      shift
+      ;;
+    -F | -v) shift ;;
+    -X | -At | -q) ;;
+    *)
+      echo "psql (stub): unsupported argument $1" >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+dir="$(stub_require_db "$url" psql)"
+
+drop_re='^DROP DATABASE IF EXISTS "([a-z_][a-z0-9_]*)"$'
+create_re='^CREATE DATABASE "([a-z_][a-z0-9_]*)" TEMPLATE template0$'
+if [[ "$sql" =~ $drop_re ]]; then
+  victim="${BASH_REMATCH[1]}"
+  rm -rf "${STUB_PG_ROOT:?}/${victim:?}"
+elif [[ "$sql" =~ $create_re ]]; then
+  if [[ -e "$STUB_PG_ROOT/${BASH_REMATCH[1]}" ]]; then
+    echo "psql: ERROR: database \"${BASH_REMATCH[1]}\" already exists (stub)" >&2
+    exit 3
+  fi
+  mkdir "$STUB_PG_ROOT/${BASH_REMATCH[1]}"
+elif [[ "$sql" == *query_to_xml* ]]; then
+  # The row count query. Pull the schema list out of its IN (...) clause.
+  schemas=" $(grep -o "IN ([^)]*)" <<<"$sql" | grep -o "'[^']*'" | tr -d "'" | tr '\n' ' ')"
+  shopt -s nullglob
+  for f in "$dir"/*.tsv; do
+    table="$(basename "$f" .tsv)"
+    [[ "$schemas" == *" ${table%%.*} "* ]] || continue
+    printf '%s\t%s\n' "$table" "$(($(wc -l <"$f")))"
+  done | sort
+else
+  echo "psql (stub): unsupported SQL: $sql" >&2
+  exit 2
+fi
