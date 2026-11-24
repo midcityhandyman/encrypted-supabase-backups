@@ -1,6 +1,8 @@
 # Example unit. Copy to /etc/systemd/system/ and adjust the paths.
 # Config lives in an env file readable only by the backup user:
 #   install -o backup -g backup -m 0600 .env.example /etc/encrypted-backups/backup.env
+# ProtectHome=true below hides ~/.pgpass when the backup user's home is under
+# /home; in that case set PGPASSFILE in the env file to a path outside it.
 [Unit]
 Description=Encrypted Postgres backup, restore test and prune
 Wants=network-online.target

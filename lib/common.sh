@@ -59,6 +59,18 @@ db_name_of() {
   printf '%s\n' "${url##*/}"
 }
 
+# The restore test reads the database name out of a connection string and swaps
+# it for the scratch name, so it only accepts the URL form with an explicit
+# database. A keyword string (host=... dbname=...) or a URL with no database
+# would make the scratch database guard compare against the wrong text.
+require_db_url() {
+  local v
+  for v in "$@"; do
+    [[ "${!v}" =~ ^postgres(ql)?://[^/?]+/[^/?]+(\?.*)?$ ]] \
+      || die "$v must be a postgres:// URL that names a database, like postgres://user@host:5432/dbname"
+  done
+}
+
 # Same connection string, different database name. Keeps any ?query part.
 with_db_name() {
   local url="$1" name="$2" query=""

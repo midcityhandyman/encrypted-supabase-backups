@@ -171,6 +171,33 @@ test_restore_test_refuses_to_use_a_real_database_as_scratch() {
   assert_file "$STUB_PG_ROOT/app_source/public.customers.tsv"
 }
 
+test_restore_test_rejects_urls_it_cannot_take_a_database_name_from() {
+  local out
+  out="$(backup_at 20261101T021500Z)"
+  # No database in the URL: the scratch URL would be built from the wrong part.
+  if SCRATCH_ADMIN_URL="postgres://restore_tester@localhost:5432" \
+    bash "$BIN/restore-test.sh" "$out" 2>"$SB/err.log"; then fail "expected failure"; fi
+  assert_grep "SCRATCH_ADMIN_URL must be a postgres:// URL" "$SB/err.log"
+  SCRATCH_ADMIN_URL="postgres://restore_tester@localhost:5432/" assert_fails bash "$BIN/restore-test.sh" "$out"
+  SCRATCH_ADMIN_URL="host=localhost dbname=postgres" assert_fails bash "$BIN/restore-test.sh" "$out"
+  # Keyword form of the source: the guard could not see that it names the scratch database.
+  if SOURCE_DATABASE_URL="host=db.example.com dbname=restore_test_scratch" \
+    bash "$BIN/restore-test.sh" "$out" 2>"$SB/err.log"; then fail "expected failure"; fi
+  assert_grep "SOURCE_DATABASE_URL must be a postgres:// URL" "$SB/err.log"
+  assert_file "$STUB_PG_ROOT/app_source/public.customers.tsv"
+  SCRATCH_ADMIN_URL="postgresql://restore_tester@localhost:5432/postgres" assert_ok bash "$BIN/restore-test.sh" "$out"
+}
+
+test_scripts_are_committed_executable() {
+  # The README and the systemd unit run bin/nightly.sh directly, so the mode
+  # recorded in git matters. Skipped outside a git checkout.
+  command -v git >/dev/null 2>&1 || return 0
+  git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || return 0
+  local modes
+  modes="$(git -C "$ROOT" ls-files -s -- bin tests/stubs/pg tests/stubs/age | grep -v '_stub_lib.sh' | awk '{ print $1 }' | sort -u)"
+  assert_eq "$modes" "100755"
+}
+
 test_prune_keeps_daily_and_weekly() {
   make_history
   KEEP_DAILY=3 KEEP_WEEKLY=3 assert_ok bash "$BIN/prune.sh"

@@ -22,9 +22,11 @@ valid_ident "$SCRATCH_DB" || die "bad SCRATCH_DB_NAME: $SCRATCH_DB"
 [[ -r "$AGE_IDENTITY_FILE" ]] || die "cannot read AGE_IDENTITY_FILE: $AGE_IDENTITY_FILE"
 
 # The scratch database is dropped and recreated, so it must never be a real one.
+require_db_url SCRATCH_ADMIN_URL
 [[ "$SCRATCH_DB" != "$(db_name_of "$SCRATCH_ADMIN_URL")" ]] \
   || die "SCRATCH_DB_NAME must differ from the database in SCRATCH_ADMIN_URL"
 if [[ -n "${SOURCE_DATABASE_URL:-}" ]]; then
+  require_db_url SOURCE_DATABASE_URL
   [[ "$SCRATCH_DB" != "$(db_name_of "$SOURCE_DATABASE_URL")" ]] \
     || die "SCRATCH_DB_NAME must differ from the source database name"
 fi
